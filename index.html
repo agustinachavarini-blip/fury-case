@@ -1,0 +1,46 @@
+<!DOCTYPE html>
+<html lang="es"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<meta name="robots" content="noindex,nofollow"><title>Estado de Fury · UX Challenge — Agustina Chavarini</title>
+<style>
+*{box-sizing:border-box}body{margin:0;min-height:100vh;display:grid;place-items:center;font-family:Inter,system-ui,-apple-system,Segoe UI,Roboto,sans-serif;background:radial-gradient(60% 50% at 80% 10%,#dcdffb,transparent 70%),radial-gradient(50% 50% at 10% 90%,#d6e6fd,transparent 70%),#f5f6fa;color:#1f2333}
+.c{width:min(420px,90vw);background:#fff;border-radius:28px;padding:38px 34px;box-shadow:0 24px 70px rgba(63,79,224,.16);text-align:center}
+.t{display:inline-flex;gap:8px;align-items:center;font-size:12.5px;font-weight:600;color:#5f6b7a;background:#f5f6fa;border-radius:999px;padding:7px 14px}
+h1{font-size:26px;letter-spacing:-.02em;margin:22px 0 6px}p{margin:0 0 24px;color:#5f6b7a;font-size:14.5px;line-height:1.5}
+form{display:flex;flex-direction:column;gap:12px}input{height:50px;border-radius:999px;border:1.5px solid #dfe2ee;padding:0 22px;font-size:16px;text-align:center;font-family:inherit;outline:none}
+input:focus{border-color:#3f4fe0}button{height:50px;border-radius:999px;border:0;background:#3f4fe0;color:#fff;font-size:15.5px;font-weight:600;cursor:pointer;font-family:inherit}
+button:disabled{opacity:.6;cursor:wait}.e{color:#e11931;font-size:13.5px;min-height:18px;margin-top:2px}
+.l{margin-top:18px;font-size:12.5px}.l a{color:#5f6b7a;cursor:pointer;text-decoration:underline}.en{display:none}html[lang=en] .en{display:inline}html[lang=en] .es{display:none}
+</style></head><body>
+<div class="c">
+  <span class="t">UX Challenge · Mercado Libre</span>
+  <h1>Estado de Fury</h1>
+  <p><span class="es">Este caso es privado. Ingresá la contraseña que te compartió Agustina para verlo.</span><span class="en">This case is private. Enter the password Agustina shared with you to view it.</span></p>
+  <form id="f"><input id="pw" type="password" autocomplete="current-password" autofocus placeholder="Contraseña / Password" aria-label="Password"><button id="b"><span class="es">Entrar</span><span class="en">Enter</span></button><div class="e" id="e" role="alert"></div></form>
+  <div class="l"><a id="lg"><span class="es">English</span><span class="en">Español</span></a></div>
+</div>
+<script>
+(function(){
+var SALT=Uint8Array.from(atob("xs+nc/9O4UEoO11cT9rMCQ=="),function(c){return c.charCodeAt(0)}),IT=600000;
+var en=/^en/i.test(navigator.language||'')||/lang=en/.test(location.search);
+function setL(x){document.documentElement.lang=x;en=x==='en'}setL(en?'en':'es');
+document.getElementById('lg').onclick=function(){setL(en?'es':'en')};
+var M={ok:'',bad:{es:'Contraseña incorrecta.',en:'Wrong password.'},nosw:{es:'Tu navegador no permite abrir este sitio (necesita HTTPS y service workers). Probá con Chrome, Safari o Edge actualizados.',en:'Your browser cannot open this site (needs HTTPS and service workers). Try an up-to-date Chrome, Safari or Edge.'}};
+function put(db,k,v){return new Promise(function(r,j){var t=db.transaction('kv','readwrite');t.objectStore('kv').put(v,k);t.oncomplete=r;t.onerror=j})}
+function openDb(){return new Promise(function(r,j){var q=indexedDB.open('fury-gate',1);q.onupgradeneeded=function(){q.result.createObjectStore('kv')};q.onsuccess=function(){r(q.result)};q.onerror=j})}
+document.getElementById('f').onsubmit=async function(ev){
+  ev.preventDefault();var b=document.getElementById('b'),e=document.getElementById('e');e.textContent='';
+  if(!('serviceWorker' in navigator)||!window.crypto||!crypto.subtle){e.textContent=M.nosw[en?'en':'es'];return}
+  b.disabled=true;
+  try{
+    var base=await crypto.subtle.importKey('raw',new TextEncoder().encode(document.getElementById('pw').value),'PBKDF2',false,['deriveKey']);
+    var key=await crypto.subtle.deriveKey({name:'PBKDF2',salt:SALT,iterations:IT,hash:'SHA-256'},base,{name:'AES-GCM',length:256},true,['decrypt']);
+    var buf=new Uint8Array(await (await fetch('fm.bin',{cache:'no-store'})).arrayBuffer());
+    var man;try{man=JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({name:'AES-GCM',iv:buf.slice(0,12)},key,buf.slice(12))))}catch(x){e.textContent=M.bad[en?'en':'es'];b.disabled=false;return}
+    var raw=await crypto.subtle.exportKey('raw',key),db=await openDb();await put(db,'key',raw);await put(db,'man',man);
+    var reg=await navigator.serviceWorker.register('sw.js');await navigator.serviceWorker.ready;
+    if(reg.active)reg.active.postMessage('reset');
+    location.replace(location.pathname+(en?'?lang=en':''));
+  }catch(x){e.textContent=M.nosw[en?'en':'es'];b.disabled=false}
+};
+})();
+</script></body></html>
